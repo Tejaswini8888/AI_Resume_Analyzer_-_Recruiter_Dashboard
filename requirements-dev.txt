@@ -1,0 +1,7 @@
+# TalentIQ — development / test dependencies
+#
+# Installed in addition to requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+# Test runner
+pytest==9.1.1

@@ -1,0 +1,55 @@
+[theme]
+base = "dark"
+primaryColor = "#7C3AED"
+backgroundColor = "#070B14"
+secondaryBackgroundColor = "#0D1422"
+textColor = "#F8FAFC"
+linkColor = "#A78BFA"
+borderColor = "#1E293B"
+codeTextColor = "#A78BFA"
+codeBackgroundColor = "#111827"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap"
+baseFontSize = 15
+baseFontWeight = 400
+showWidgetBorder = true
+baseRadius = "medium"
+buttonRadius = "medium"
+linkUnderline = false
+headingFontSizes = ["36px", "28px", "22px", "18px", "16px", "14px"]
+headingFontWeights = [700, 700, 600, 600, 600, 500]
+chartCategoricalColors = ["#7C3AED", "#06B6D4", "#22C55E", "#F59E0B", "#EF4444", "#A78BFA", "#38BDF8"]
+greenColor = "#22C55E"
+redColor = "#EF4444"
+orangeColor = "#F59E0B"
+yellowColor = "#FACC15"
+violetColor = "#7C3AED"
+blueColor = "#06B6D4"
+grayColor = "#94A3B8"
+
+[server]
+headless = true
+port = 8501
+# Production-safe default: no file watching / auto-rerun. Local development can
+# opt back in without editing this file via STREAMLIT_SERVER_RUN_ON_SAVE=true.
+runOnSave = false
+# Must stay enabled. XSRF protection and CORS are Streamlit's secure defaults;
+# they are pinned explicitly here so a future default change (or a well-meaning
+# "fix" for a proxy issue) cannot silently disable them. Do NOT disable either
+# one to work around CORS errors — configure the reverse proxy instead.
+enableCORS = true
+enableXsrfProtection = true
+# Transport-level guard. Keep in sync with MAX_RESUME_SIZE_MB (default 10) — the
+# application enforces its own limit in-process, but Streamlit buffers the
+# upload before Python sees it, so this is what actually bounds memory use.
+# Raise both together, or override with STREAMLIT_SERVER_MAX_UPLOAD_SIZE.
+maxUploadSize = 10
+# Suppress Streamlit's "share your email" opt-in prompt. It is product noise in
+# a deployed instance and has no business in a production UI.
+showEmailPrompt = false
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

@@ -1,4 +1,3 @@
-```gitignore
 # Python
 __pycache__/
 *.py[cod]
@@ -6,13 +5,24 @@ __pycache__/
 
 # Virtual Environment
 venv/
+.venv/
+
+# Environment files (never commit secrets)
 .env
+*.env
+!.env.example
+.env.local
 
 # Streamlit
-.streamlit/
+# config.toml holds the product theme + server settings and MUST be committed,
+# otherwise a fresh clone silently loses the dark theme. Local secrets and
+# runtime state stay ignored.
+.streamlit/secrets.toml
+.streamlit/*.log
 
-# VS Code
+# VS Code / JetBrains
 .vscode/
+.idea/
 
 # macOS
 .DS_Store
@@ -22,4 +32,41 @@ Thumbs.db
 
 # Logs
 *.log
-```
+
+# SQLite databases (generated at runtime; never commit)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/*.sqlite
+data/*.sqlite3
+
+# Temporary / generated file directories
+data/tmp/
+data/uploads/
+
+# Test & coverage artifacts
+#
+# NOTE: these patterns are flush-left on purpose. Git does NOT strip leading
+# whitespace from a pattern, so an indented line is matched literally and
+# silently matches nothing. An indented block in this file previously made
+# .coverage, coverage.xml and htmlcov/ no-ops for months.
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+# Byte-compile output from quality checks (CI compiles to a temp dir; this
+# catches ad-hoc local `py_compile` runs that target the source tree)
+*.check
+.mypy_cache/
+.ruff_cache/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+
+# NOTE: data/skills.json is REQUIRED runtime data and must stay tracked.
+# It is a skill dataset, not generated output. There is deliberately no
+# `data/*.json` ignore rule — see docs/DEPLOYMENT.md.

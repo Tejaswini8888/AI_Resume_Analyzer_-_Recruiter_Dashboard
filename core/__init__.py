@@ -1,0 +1,1 @@
+"""TalentIQ core configuration package."""

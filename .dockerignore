@@ -1,0 +1,75 @@
+# Keep the build context small and prevent secrets or local machine state from
+# ever entering an image layer. Anything listed here is unavailable at runtime,
+# so this file must never exclude application code or required data.
+#
+# Note there is deliberately no `data/*.json` rule: data/skills.json is required
+# runtime data and MUST be copied into the image.
+
+# --- Secrets: never in an image, even a private one ------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.toml
+.streamlit/secrets.toml
+
+# --- Version control / CI metadata ------------------------------------------
+.git
+.gitignore
+.github
+.gitattributes
+
+# --- Virtual environments (the image builds its own at /opt/venv) ----------
+venv/
+.venv/
+env/
+ENV/
+
+# --- Python build and cache artifacts --------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Tests: not needed to serve the app (run them in CI, in the build stage
+# --- or on the host, not in the shipped runtime image) ---------------------
+tests/
+pytest.ini
+requirements-dev.txt
+docs/
+
+# --- Local machine / editor state ------------------------------------------
+.vscode/
+.idea/
+.agents/
+.DS_Store
+Thumbs.db
+*.log
+
+# --- Runtime state: never bake a database or user uploads into an image -----
+# The database is created on first start and belongs on a volume.
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/*.sqlite
+data/*.sqlite3
+data/tmp/
+data/uploads/
+
+# --- Screenshots used only by the README -----------------------------------
+image.png
+image-1.png
+image-2.png

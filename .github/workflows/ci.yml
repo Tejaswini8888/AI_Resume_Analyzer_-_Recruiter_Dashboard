@@ -1,0 +1,145 @@
+# Continuous integration for TalentIQ.
+#
+# Runs on every push and every pull request. The gate is deliberately
+# dependency-free and network-free: no secret, no database service, no Groq
+# call, and no model download. A fork's pull request must be verifiable by
+# someone who has no access to this repository's secrets, so anything that
+# needs a credential cannot be a required check.
+#
+# What each step is for, and why it is here:
+#
+#   hygiene      A committed .env or *.db is a security incident, and .gitignore
+#                is only a convention that `git add -f` overrides. This is the
+#                last chance to catch it before it reaches a remote.
+#   compile      Catches a syntax error in any shipped file, including the
+#                Streamlit pages that pytest never imports.
+#   imports      Catches a renamed symbol, a bad relative path, or a dependency
+#                missing from requirements.txt - on a machine whose only source
+#                of truth is the requirement files.
+#   pytest       The behavioural suite: auth, RBAC, ownership, persistence,
+#                versioning, audit, file security, PDF, AI resilience.
+#
+# Every step is required. There is deliberately no `continue-on-error` and no
+# `|| true`: a red pipeline must mean something is wrong.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # Cancel superseded runs on the same ref so a rapid series of pushes does not
+  # burn minutes of runner time re-testing commits nobody will ship.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# A hung test must not hold a runner for six hours.
+timeout-minutes: 45
+
+jobs:
+  verify:
+    name: Tests, imports and quality checks
+    runs-on: ubuntu-latest
+
+    env:
+      # Safe, non-secret test configuration. GROQ_API_KEY is a placeholder:
+      # tests/conftest.py deletes it before every test, so this value is never
+      # used to make a request. It is set only so a missing-variable bug cannot
+      # hide behind an absent variable.
+      GROQ_API_KEY: ci-placeholder-not-a-real-key
+      GROQ_MODEL: openai/gpt-oss-120b
+      # Must be one of development | testing | production. core.config rejects
+      # anything else with a ConfigurationError, which would fail every import
+      # in the job - so this is "testing", not the more natural-sounding "test".
+      ENVIRONMENT: testing
+      DEBUG: "false"
+      MAX_RESUME_SIZE_MB: "10"
+      LOG_LEVEL: WARNING
+      # Keep every test's database and upload scratch space inside the runner's
+      # temp dir, never in the checkout.
+      TALENTIQ_DB_PATH: ${{ runner.temp }}/talentiq-ci/ci.db
+      TMPDIR: ${{ runner.temp }}
+      # Belt and braces: refuse to dial out, so a test that accidentally depends
+      # on the network fails fast instead of quietly succeeding against a live
+      # endpoint or hanging until the job timeout.
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      NO_PROXY: "*"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # The version the pinned requirements and the test suite are verified
+          # against (3.11). 3.12+ is not used because pandas/scikit-learn wheels
+          # are not guaranteed for every pin on the day a push lands.
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # torch arrives transitively via sentence-transformers. On a Linux runner
+      # the default wheel drags in the CUDA runtime (several GB, and a real
+      # chance of exhausting the runner's disk). Production installs the CPU
+      # build (see Dockerfile), so CI installs the same one to validate the
+      # dependency set that actually ships.
+      - name: Install CPU-only torch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify pinned dependencies are consistent
+        run: python -m pip check
+
+      - name: Check tracked files for committed secrets and local state
+        run: python tools/ci_secret_scan.py
+
+      - name: Compile every shipped Python file
+        run: |
+          python -m compileall -q \
+            app.py core modules services ui pages tools tests
+
+      - name: Validate imports
+        run: python tools/ci_import_check.py
+
+      - name: Run the test suite
+        run: python -m pytest -ra --tb=short --durations=10
+
+      - name: Confirm the test run left no artifacts in the checkout
+        # A test that writes into the repository is a bug that only shows up as
+        # noise in the next run's diff. Assert the tree is clean instead.
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::The test run modified tracked files or created new ones:"
+            git status --porcelain
+            exit 1
+          fi
+          echo "Working tree clean after the test run."
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## TalentIQ CI"
+            echo ""
+            echo "- Python: \`$(python -V 2>&1)\`"
+            echo "- Commit: \`${GITHUB_SHA::12}\`"
+            echo "- Result: ${{ job.status }}"
+            echo ""
+            echo "Required checks: secret/local-state hygiene, byte-compilation,"
+            echo "import resolution, and the pytest suite."
+          } >> "$GITHUB_STEP_SUMMARY"
